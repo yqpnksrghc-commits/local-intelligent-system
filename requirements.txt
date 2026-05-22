@@ -1,0 +1,13 @@
+langgraph>=0.2
+langchain>=0.3
+langchain-community>=0.3
+langchain-ollama>=0.2
+langchain-chroma>=0.1
+chromadb>=0.5
+pypdf>=4.0
+unstructured[pdf]
+python-dotenv>=1.0
+gradio>=4.0
+tqdm
+duckduckgo-search>=6.0
+wikipedia
