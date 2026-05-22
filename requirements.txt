@@ -10,5 +10,9 @@ python-dotenv>=1.0
 gradio>=4.0
 tqdm
 requests>=2.31
+faster-whisper>=1.0
+sounddevice>=0.4
+numpy>=1.26
+pyttsx3>=2.90
 duckduckgo-search>=6.0
 wikipedia
