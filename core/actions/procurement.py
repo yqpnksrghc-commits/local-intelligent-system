@@ -183,13 +183,14 @@ def order(product: Product, confirm_first: bool = True) -> str:
 # ── Convenience: find + order a phone ────────────────────────────────────────
 
 def get_phone(
-    query: str = "smartphone",
+    query: str = "iPhone",
     max_price: float | None = None,
     retailer: str = "amazon",
     confirm_first: bool = True,
 ) -> str:
     """
     Search for a phone, present options, and order the selected one.
+    Defaults to Apple/iPhone per user preference.
     """
     print(f"[procurement] searching {retailer} for: {query!r}")
     products = search(query, retailer)
