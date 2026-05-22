@@ -156,13 +156,18 @@ def cmd_nearest(bridge: NBridge) -> None:
 
 
 def cmd_join(ms: MultiSession) -> None:
-    name       = _ask("Name")
-    modality   = _ask("Modality", "text")
-    language   = _ask("Language", "english")
+    name        = _ask("Name")
+    kind        = _ask("Type (human/agent)", "human")
+    modality    = _ask("Modality", "text")
+    language    = _ask("Language", "english")
     receptivity = float(_ask("Receptivity 0-100", "80")) / 100
-    raw_bw     = _ask("Bandwidth axes (comma-separated, blank=all)", "")
-    bandwidth  = [a.strip() for a in raw_bw.split(",") if a.strip()] or None
-    ms.add(name, modality, language, receptivity, bandwidth)
+    raw_bw      = _ask("Bandwidth axes (comma-separated, blank=all)", "")
+    bandwidth   = [a.strip() for a in raw_bw.split(",") if a.strip()] or None
+    if kind == "agent":
+        policy = _ask("Policy (converge/explore/challenge/synthesize/mirror/anchor)", "explore")
+        ms.add_agent(name, policy, modality, language, receptivity, bandwidth)
+    else:
+        ms.add(name, modality, language, receptivity, bandwidth)
 
 
 def cmd_send(ms: MultiSession) -> None:
@@ -226,6 +231,31 @@ def cmd_who(ms: MultiSession) -> None:
     ms.print_state()
 
 
+def cmd_landscape(ms: MultiSession) -> None:
+    n = int(_ask("Number of attractors", "3"))
+    ms.print_landscape(n)
+
+
+def cmd_trajectories(ms: MultiSession) -> None:
+    ms.print_trajectories()
+
+
+def cmd_diffuse(ms: MultiSession) -> None:
+    steps = int(_ask("Diffusion steps", "1"))
+    ms.diffuse(steps)
+
+
+def cmd_policy(ms: MultiSession) -> None:
+    name   = _ask("Agent name")
+    policy = _ask("Policy (converge/explore/challenge/synthesize/mirror/anchor)")
+    from core.multiversal.participants.agent import AgentParticipant
+    p = ms.get(name)
+    if isinstance(p, AgentParticipant):
+        p.set_policy(policy)
+    else:
+        print(f"{name!r} is not an agent participant.")
+
+
 COMMANDS = {
     # solo
     "transduce":   cmd_transduce,
@@ -237,15 +267,20 @@ COMMANDS = {
     "project":     cmd_project,
     "nearest":     cmd_nearest,
     # multi-participant
-    "join":        cmd_join,
-    "send":        cmd_send,
-    "channel":     cmd_channel,
-    "volume":      cmd_volume,
-    "bandwidth":   cmd_bandwidth,
-    "consensus":   cmd_consensus,
-    "divergence":  cmd_divergence,
-    "transcript":  cmd_transcript,
-    "who":         cmd_who,
+    "join":         cmd_join,
+    "send":         cmd_send,
+    "channel":      cmd_channel,
+    "volume":       cmd_volume,
+    "bandwidth":    cmd_bandwidth,
+    "consensus":    cmd_consensus,
+    "divergence":   cmd_divergence,
+    "transcript":   cmd_transcript,
+    "who":          cmd_who,
+    # dynamics + topology
+    "landscape":    cmd_landscape,
+    "trajectories": cmd_trajectories,
+    "diffuse":      cmd_diffuse,
+    "policy":       cmd_policy,
 }
 
 

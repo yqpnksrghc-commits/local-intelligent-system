@@ -2,10 +2,13 @@
 MultiSession — the shared semantic space inhabited by all participants.
 
 Manages:
-  - participant registration and state
+  - participant registration and state (human and autonomous agents)
   - channel creation and routing
-  - message transmission (unicast, multicast, broadcast)
+  - message transmission with agent auto-response
   - group operations: consensus, divergence, resonance mapping
+  - trajectory tracking per participant
+  - topological analysis: attractors, landscape, convergence field
+  - diffusion: passive meaning spread through the network
   - the full communication transcript
 """
 from __future__ import annotations
@@ -17,6 +20,8 @@ from core.multiversal.nbridge import NBridge
 from core.multiversal.participants.participant import Participant
 from core.multiversal.participants.channel import Channel
 from core.multiversal.participants.message import Message
+from core.multiversal.dynamics import Trajectory, DiffusionModel
+import core.multiversal.topology as topo
 
 
 class MultiSession:
@@ -27,7 +32,11 @@ class MultiSession:
         self.participants: dict[str, Participant] = {}
         self.channels:     dict[str, Channel]     = {}
         self.transcript:   list[Message]          = []
-        self._session_n   = 0
+        self.trajectories: dict[str, Trajectory]  = {}
+        self.diffusion     = DiffusionModel()
+        self._session_n    = 0
+        # all meanings ever produced in this session
+        self._all_meanings: list[NMeaning]        = []
 
     # ── Participant management ─────────────────────────────────────────
 
@@ -47,7 +56,30 @@ class MultiSession:
             bandwidth=bandwidth,
         )
         self.participants[name] = p
+        self.trajectories[name] = Trajectory(owner=name)
         print(f"[session] {name} joined  ({modality}/{language}  "
+              f"receptivity={int(receptivity*100)}%)")
+        return p
+
+    def add_agent(
+        self,
+        name: str,
+        policy: str = "explore",
+        modality: str = "text",
+        language: str = "english",
+        receptivity: float = 0.8,
+        bandwidth: list[str] | None = None,
+    ) -> "AgentParticipant":
+        from core.multiversal.participants.agent import AgentParticipant
+        p = AgentParticipant(
+            name=name, llm=self.llm, policy=policy,
+            preferred_modality=modality, preferred_language=language,
+            receptivity=receptivity, bandwidth=bandwidth,
+        )
+        self.participants[name] = p
+        self.trajectories[name] = Trajectory(owner=name)
+        print(f"[session] agent {name!r} joined  "
+              f"(policy={policy}  {modality}/{language}  "
               f"receptivity={int(receptivity*100)}%)")
         return p
 
@@ -138,9 +170,36 @@ class MultiSession:
                   f"receptivity={int(receiver.receptivity*100)}%/"
                   f"resonance={resonance:.2f}]:\n    {decoded}\n")
 
+        # track trajectory for sender
+        self._track(sender_name, meaning)
+        self._all_meanings.append(meaning)
+
+        # autonomous agent responses
+        for name in targets:
+            if name not in self.participants:
+                continue
+            receiver = self.participants[name]
+            received_m = msg.received_as.get(name)
+            if received_m is None:
+                continue
+            from core.multiversal.participants.agent import AgentParticipant
+            if isinstance(receiver, AgentParticipant):
+                response = receiver.respond(received_m, self.space,
+                                            str(self._session_n))
+                if response:
+                    print(f"  [{name} auto-responds]:")
+                    self.send(name, response, [sender_name],
+                              source_modality="text",
+                              source_language=receiver.preferred_language)
+
         self.transcript.append(msg)
         self._session_n += 1
         return msg
+
+    def _track(self, name: str, meaning: NMeaning) -> None:
+        if name not in self.trajectories:
+            self.trajectories[name] = Trajectory(owner=name)
+        self.trajectories[name].append(meaning, label=meaning.label)
 
     def _decode_for(self, receiver: Participant, meaning: NMeaning) -> str:
         target = receiver.preferred_language if receiver.preferred_modality == "text" \
@@ -192,6 +251,52 @@ class MultiSession:
             name: (p.state.label if p.state else "uninitiated")
             for name, p in self.participants.items()
         }
+
+    # ── Topology ──────────────────────────────────────────────────────
+
+    def landscape(self, n_attractors: int = 3) -> dict:
+        """Full topological analysis of all meanings produced this session."""
+        return topo.landscape(self._all_meanings, self.space, n_attractors)
+
+    def print_landscape(self, n_attractors: int = 3) -> None:
+        if not self._all_meanings:
+            print("(no meanings yet)\n")
+            return
+        L = self.landscape(n_attractors)
+        print(f"\n── Semantic Landscape  ({L['n_meanings']} meanings) " + "─" * 30)
+        print(f"  Spread:   {L['spread']:.3f}  (0=tight cluster, 1=maximally scattered)")
+        print(f"  Density:  {L['density']:.3f}")
+        c = L['centroid']
+        print(f"  Centroid: {c.label!r}")
+        print(f"\n  Attractors:")
+        for a in L['attractors']:
+            print(f"    · {a.label!r}")
+        print(f"\n  Basin assignments:")
+        for src, basin in L['assignments'].items():
+            print(f"    {src[:30]:30} → {basin}")
+
+        # convergence field
+        states = [p.state for p in self.participants.values() if p.state is not None]
+        if len(states) >= 2:
+            cf = topo.convergence_field(states)
+            print(f"\n  Convergence: {cf['status']}"
+                  f"  cohesion={cf['cohesion']:.3f}"
+                  f"  spread=[{cf['min_similarity']:.2f}–{cf['max_similarity']:.2f}]")
+        print()
+
+    def print_trajectories(self) -> None:
+        print("\n── Trajectories " + "─" * 40)
+        for name, traj in self.trajectories.items():
+            print(f"  {traj.summary()}")
+        print()
+
+    def diffuse(self, steps: int = 1) -> None:
+        """Run n diffusion steps — passive meaning spread through the network."""
+        for i in range(steps):
+            shifts = self.diffusion.step(self.participants, self.space)
+            if shifts:
+                desc = "  ".join(f"{n}:{v:.4f}" for n, v in shifts.items())
+                print(f"[diffuse step {i+1}] {desc}")
 
     # ── Introspection ─────────────────────────────────────────────────
 
