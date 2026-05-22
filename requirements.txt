@@ -9,5 +9,6 @@ unstructured[pdf]
 python-dotenv>=1.0
 gradio>=4.0
 tqdm
+requests>=2.31
 duckduckgo-search>=6.0
 wikipedia
