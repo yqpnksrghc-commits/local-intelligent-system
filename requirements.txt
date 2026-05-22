@@ -10,6 +10,10 @@ python-dotenv>=1.0
 gradio>=4.0
 tqdm
 requests>=2.31
+twilio>=8.0
+playwright>=1.40
+flask>=3.0
+pyngrok>=7.0
 faster-whisper>=1.0
 sounddevice>=0.4
 numpy>=1.26
